@@ -15,3 +15,5 @@ Highlights trends and correlations between satisfaction, flight distance, age, a
 Enables dynamic filtering and drill-down analysis for deeper insights.
 
 Helps stakeholders identify areas for improvement to enhance passenger experience and loyalty.
+
+![Airline Dashboard Screenshot](https://github.com/nujoomzmn/Airline-Summary-Dashboard/blob/main/Screenshot%202025-09-12%20203249.png)
