@@ -1,19 +1,22 @@
-Summary of the Project
+✈️ Airline Passenger Satisfaction Dataset – Description
 
-Built an interactive Power BI dashboard to analyze airline passenger satisfaction data.
+This dataset contains detailed information about airline passengers and their satisfaction levels. It combines demographic data, travel details, flight delays, and service quality scores to understand what drives customer satisfaction.
 
-Dataset includes demographics, travel details, flight delays, and service quality scores.
+Demographics: Gender, Age, Customer Type (regular vs. non-regular)
 
-Dashboard displays KPIs such as % satisfaction, average delays, and flight distance.
+Travel Details: Type of Travel (business or personal), Class (Business, Economy, Economy Plus), Flight Distance
 
-Provides demographic insights (gender, age, customer type, class) and their satisfaction levels.
+Service Ratings (0 = not rated; 1–5 = satisfaction level): Inflight Wi-Fi Service, Departure/Arrival Time Convenience, Ease of Online Booking, Gate Location, Food & Drink, Online Boarding, Seat Comfort, Inflight Entertainment, On-board Service, Leg Room Service, Baggage Handling, Check-in Service, Inflight Service, Cleanliness
 
-Evaluates service quality factors (wifi, food, entertainment, seat comfort, cleanliness) to find top drivers of satisfaction.
+Operational Metrics: Departure Delay in Minutes, Arrival Delay in Minutes
 
-Highlights trends and correlations between satisfaction, flight distance, age, and delays.
+This rich data allows for:
 
-Enables dynamic filtering and drill-down analysis for deeper insights.
+Profiling passengers by demographics and travel patterns.
 
-Helps stakeholders identify areas for improvement to enhance passenger experience and loyalty.
+Measuring service performance across multiple touchpoints.
 
+Analyzing operational impact (delays) on satisfaction.
+
+Building dashboards and predictive models to identify improvement areas and boost loyalty.
 ![Airline Dashboard Screenshot](https://github.com/nujoomzmn/Airline-Summary-Dashboard/blob/main/Screenshot%202025-09-12%20203249.png)
