@@ -1,0 +1,450 @@
+"""
+Complete Machine Learning Pipeline for Airline Customer Satisfaction
+From label-encoded features to interactive prediction system
+"""
+
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV, RandomizedSearchCV
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, ExtraTreesClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, roc_auc_score, roc_curve
+import warnings
+warnings.filterwarnings('ignore')
+
+class AirlineMLPipeline:
+    def __init__(self, df_ml):
+        """
+        Initialize the ML pipeline with label-encoded dataset
+        
+        Parameters:
+        df_ml: DataFrame with label-encoded features and target
+        """
+        self.df_ml = df_ml.copy()
+        self.X = None
+        self.y = None
+        self.X_train = None
+        self.X_test = None
+        self.y_train = None
+        self.y_test = None
+        self.scaler = StandardScaler()
+        self.best_model = None
+        self.best_model_name = None
+        self.feature_names = None
+        self.model_scores = {}
+        
+        # Feature descriptions for interactive input
+        self.feature_descriptions = {
+            'Gender': {0: 'Female', 1: 'Male'},
+            'Customer Type': {0: 'Disloyal Customer', 1: 'Loyal Customer'},
+            'Type of Travel': {0: 'Personal Travel', 1: 'Business Travel'},
+            'Class': {0: 'Eco', 1: 'Business', 2: 'Eco Plus'},
+            'Age group': {0: 'Young (0-25)', 1: 'Adult (26-35)', 2: 'Middle-aged (36-50)', 3: 'Senior (50+)'},
+            'Flight Distance Group': {0: 'Very Short (0-500)', 1: 'Short (500-1000)', 2: 'Medium (1000-2000)', 3: 'Long (2000-3000)', 4: 'Very Long (3000+)'}
+        }
+    
+    def prepare_data(self):
+        """Prepare data for machine learning"""
+        print("="*60)
+        print("PREPARING DATA FOR MACHINE LEARNING")
+        print("="*60)
+        
+        # Separate features and target
+        self.X = self.df_ml.drop('satisfaction', axis=1)
+        self.y = self.df_ml['satisfaction']
+        self.feature_names = self.X.columns.tolist()
+        
+        print(f"Dataset shape: {self.df_ml.shape}")
+        print(f"Features: {self.feature_names}")
+        print(f"Target distribution: {self.y.value_counts().to_dict()}")
+        
+        # Split the data
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
+            self.X, self.y, test_size=0.2, random_state=42, stratify=self.y
+        )
+        
+        # Scale the features
+        self.X_train_scaled = self.scaler.fit_transform(self.X_train)
+        self.X_test_scaled = self.scaler.transform(self.X_test)
+        
+        print(f"Training set shape: {self.X_train_scaled.shape}")
+        print(f"Test set shape: {self.X_test_scaled.shape}")
+        
+        return self.X_train_scaled, self.X_test_scaled, self.y_train, self.y_test
+    
+    def compare_algorithms(self):
+        """Compare different machine learning algorithms"""
+        print("\n" + "="*60)
+        print("COMPARING MACHINE LEARNING ALGORITHMS")
+        print("="*60)
+        
+        # Define algorithms with their parameter grids
+        algorithms = {
+            'Random Forest': {
+                'model': RandomForestClassifier(random_state=42),
+                'params': {
+                    'n_estimators': [100, 200, 300],
+                    'max_depth': [10, 20, None],
+                    'min_samples_split': [2, 5, 10],
+                    'min_samples_leaf': [1, 2, 4]
+                }
+            },
+            'Gradient Boosting': {
+                'model': GradientBoostingClassifier(random_state=42),
+                'params': {
+                    'n_estimators': [100, 200, 300],
+                    'learning_rate': [0.01, 0.1, 0.2],
+                    'max_depth': [3, 5, 7],
+                    'subsample': [0.8, 0.9, 1.0]
+                }
+            },
+            'Extra Trees': {
+                'model': ExtraTreesClassifier(random_state=42),
+                'params': {
+                    'n_estimators': [100, 200, 300],
+                    'max_depth': [10, 20, None],
+                    'min_samples_split': [2, 5, 10]
+                }
+            },
+            'Logistic Regression': {
+                'model': LogisticRegression(random_state=42, max_iter=1000),
+                'params': {
+                    'C': [0.1, 1, 10, 100],
+                    'penalty': ['l1', 'l2'],
+                    'solver': ['liblinear', 'saga']
+                }
+            },
+            'SVM': {
+                'model': SVC(random_state=42, probability=True),
+                'params': {
+                    'C': [0.1, 1, 10, 100],
+                    'gamma': ['scale', 'auto', 0.001, 0.01, 0.1],
+                    'kernel': ['rbf', 'linear']
+                }
+            },
+            'Naive Bayes': {
+                'model': GaussianNB(),
+                'params': {}
+            },
+            'K-Nearest Neighbors': {
+                'model': KNeighborsClassifier(),
+                'params': {
+                    'n_neighbors': [3, 5, 7, 9, 11],
+                    'weights': ['uniform', 'distance'],
+                    'metric': ['euclidean', 'manhattan']
+                }
+            },
+            'Decision Tree': {
+                'model': DecisionTreeClassifier(random_state=42),
+                'params': {
+                    'max_depth': [5, 10, 15, 20, None],
+                    'min_samples_split': [2, 5, 10],
+                    'min_samples_leaf': [1, 2, 4]
+                }
+            }
+        }
+        
+        results = {}
+        
+        for name, config in algorithms.items():
+            print(f"\nTraining {name}...")
+            
+            model = config['model']
+            params = config['params']
+            
+            if params:  # If parameters exist, perform grid search
+                print(f"  Performing Grid Search for {name}...")
+                grid_search = GridSearchCV(
+                    model, params, cv=5, scoring='accuracy', 
+                    n_jobs=-1, verbose=0
+                )
+                grid_search.fit(self.X_train_scaled, self.y_train)
+                
+                best_model = grid_search.best_estimator_
+                best_params = grid_search.best_params_
+                best_score = grid_search.best_score_
+                
+                print(f"  Best parameters: {best_params}")
+                print(f"  Best CV score: {best_score:.4f}")
+                
+            else:  # No parameters to tune
+                model.fit(self.X_train_scaled, self.y_train)
+                best_model = model
+                best_score = cross_val_score(model, self.X_train_scaled, self.y_train, cv=5).mean()
+                print(f"  CV score: {best_score:.4f}")
+            
+            # Evaluate on test set
+            y_pred = best_model.predict(self.X_test_scaled)
+            test_accuracy = accuracy_score(self.y_test, y_pred)
+            
+            # Calculate AUC if possible
+            try:
+                y_pred_proba = best_model.predict_proba(self.X_test_scaled)[:, 1]
+                auc_score = roc_auc_score(self.y_test, y_pred_proba)
+            except:
+                auc_score = None
+            
+            results[name] = {
+                'model': best_model,
+                'cv_score': best_score,
+                'test_accuracy': test_accuracy,
+                'auc_score': auc_score,
+                'y_pred': y_pred
+            }
+            
+            self.model_scores[name] = test_accuracy
+            
+            print(f"  Test Accuracy: {test_accuracy:.4f}")
+            if auc_score:
+                print(f"  AUC Score: {auc_score:.4f}")
+        
+        # Find best algorithm
+        self.best_model_name = max(results.keys(), key=lambda x: results[x]['test_accuracy'])
+        self.best_model = results[self.best_model_name]['model']
+        
+        print(f"\n" + "="*50)
+        print(f"BEST ALGORITHM: {self.best_model_name}")
+        print(f"Test Accuracy: {results[self.best_model_name]['test_accuracy']:.4f}")
+        if results[self.best_model_name]['auc_score']:
+            print(f"AUC Score: {results[self.best_model_name]['auc_score']:.4f}")
+        print("="*50)
+        
+        return results
+    
+    def evaluate_best_model(self):
+        """Evaluate the best model in detail"""
+        print("\n" + "="*60)
+        print("DETAILED EVALUATION OF BEST MODEL")
+        print("="*60)
+        
+        # Make predictions
+        y_pred = self.best_model.predict(self.X_test_scaled)
+        
+        # Classification report
+        print("Classification Report:")
+        print(classification_report(self.y_test, y_pred))
+        
+        # Confusion matrix
+        print("\nConfusion Matrix:")
+        cm = confusion_matrix(self.y_test, y_pred)
+        print(cm)
+        
+        # Feature importance (if available)
+        if hasattr(self.best_model, 'feature_importances_'):
+            feature_importance = pd.DataFrame({
+                'feature': self.feature_names,
+                'importance': self.best_model.feature_importances_
+            }).sort_values('importance', ascending=False)
+            
+            print(f"\nFeature Importance:")
+            print(feature_importance)
+        
+        # Model scores summary
+        print(f"\nAll Model Scores:")
+        for model_name, score in sorted(self.model_scores.items(), key=lambda x: x[1], reverse=True):
+            print(f"{model_name:20}: {score:.4f}")
+    
+    def create_prediction_function(self):
+        """Create a function to make predictions"""
+        def predict_satisfaction(features):
+            """
+            Predict customer satisfaction based on input features
+            
+            Parameters:
+            features: dict with feature names and values
+            """
+            # Convert features to array
+            feature_array = np.array([features[col] for col in self.feature_names]).reshape(1, -1)
+            
+            # Scale features
+            feature_array_scaled = self.scaler.transform(feature_array)
+            
+            # Make prediction
+            prediction = self.best_model.predict(feature_array_scaled)[0]
+            probability = self.best_model.predict_proba(feature_array_scaled)[0]
+            
+            return {
+                'prediction': 'Satisfied' if prediction == 1 else 'Not Satisfied',
+                'probability_satisfied': probability[1],
+                'probability_not_satisfied': probability[0],
+                'confidence': max(probability)
+            }
+        
+        return predict_satisfaction
+    
+    def interactive_prediction(self):
+        """Interactive prediction system"""
+        print("\n" + "="*60)
+        print("INTERACTIVE CUSTOMER SATISFACTION PREDICTOR")
+        print("="*60)
+        print("Answer the following questions to predict customer satisfaction:")
+        print()
+        
+        # Get user input for each feature
+        user_input = {}
+        
+        for feature in self.feature_names:
+            if feature in self.feature_descriptions:
+                print(f"{feature}:")
+                options = self.feature_descriptions[feature]
+                for key, value in options.items():
+                    print(f"  {key}. {value}")
+                
+                while True:
+                    try:
+                        choice = int(input(f"Enter your choice (0-{max(options.keys())}): "))
+                        if choice in options:
+                            user_input[feature] = choice
+                            break
+                        else:
+                            print("Invalid choice. Please try again.")
+                    except ValueError:
+                        print("Please enter a valid number.")
+                print()
+        
+        # Make prediction
+        predict_func = self.create_prediction_function()
+        result = predict_func(user_input)
+        
+        # Display results
+        print("="*50)
+        print("PREDICTION RESULTS")
+        print("="*50)
+        print(f"Predicted Satisfaction: {result['prediction']}")
+        print(f"Probability of Satisfaction: {result['probability_satisfied']:.2%}")
+        print(f"Probability of Dissatisfaction: {result['probability_not_satisfied']:.2%}")
+        print(f"Confidence: {result['confidence']:.2%}")
+        print("="*50)
+        
+        return result
+    
+    def batch_prediction(self, input_data):
+        """Make predictions for multiple customers"""
+        print("\n" + "="*60)
+        print("BATCH PREDICTION")
+        print("="*60)
+        
+        predict_func = self.create_prediction_function()
+        results = []
+        
+        for i, row in input_data.iterrows():
+            features = row.to_dict()
+            result = predict_func(features)
+            result['customer_id'] = i
+            results.append(result)
+        
+        results_df = pd.DataFrame(results)
+        print(f"Predictions completed for {len(results)} customers")
+        print("\nSample results:")
+        print(results_df.head())
+        
+        return results_df
+    
+    def save_model(self, filename='best_airline_model.pkl'):
+        """Save the trained model and scaler"""
+        import joblib
+        
+        model_data = {
+            'model': self.best_model,
+            'scaler': self.scaler,
+            'feature_names': self.feature_names,
+            'feature_descriptions': self.feature_descriptions,
+            'model_name': self.best_model_name,
+            'model_scores': self.model_scores
+        }
+        
+        joblib.dump(model_data, filename)
+        print(f"\nModel saved to {filename}")
+    
+    def load_model(self, filename='best_airline_model.pkl'):
+        """Load a saved model"""
+        import joblib
+        
+        model_data = joblib.load(filename)
+        self.best_model = model_data['model']
+        self.scaler = model_data['scaler']
+        self.feature_names = model_data['feature_names']
+        self.feature_descriptions = model_data['feature_descriptions']
+        self.best_model_name = model_data['model_name']
+        self.model_scores = model_data['model_scores']
+        
+        print(f"Model loaded from {filename}")
+        print(f"Best model: {self.best_model_name}")
+    
+    def run_complete_pipeline(self):
+        """Run the complete ML pipeline"""
+        print("Starting Complete Machine Learning Pipeline...")
+        print("="*80)
+        
+        # 1. Prepare data
+        self.prepare_data()
+        
+        # 2. Compare algorithms
+        results = self.compare_algorithms()
+        
+        # 3. Evaluate best model
+        self.evaluate_best_model()
+        
+        # 4. Save model
+        self.save_model()
+        
+        print("\n" + "="*80)
+        print("PIPELINE COMPLETE!")
+        print("="*80)
+        print(f"Best Model: {self.best_model_name}")
+        print(f"Test Accuracy: {self.model_scores[self.best_model_name]:.4f}")
+        print("Model saved and ready for predictions!")
+        
+        return self.best_model, results
+
+# Example usage and testing
+def create_sample_data():
+    """Create sample data for testing"""
+    np.random.seed(42)
+    n_samples = 1000
+    
+    data = {
+        'Gender': np.random.randint(0, 2, n_samples),
+        'Customer Type': np.random.randint(0, 2, n_samples),
+        'Type of Travel': np.random.randint(0, 2, n_samples),
+        'Class': np.random.randint(0, 3, n_samples),
+        'Age group': np.random.randint(0, 4, n_samples),
+        'Flight Distance Group': np.random.randint(0, 5, n_samples),
+        'satisfaction': np.random.randint(0, 2, n_samples)
+    }
+    
+    return pd.DataFrame(data)
+
+def main():
+    """Main function to run the pipeline"""
+    print("Airline Customer Satisfaction ML Pipeline")
+    print("="*50)
+    
+    # For demonstration, create sample data
+    # In real usage, you would load your df_ml here
+    print("Creating sample data for demonstration...")
+    df_ml = create_sample_data()
+    
+    print("Sample data:")
+    print(df_ml.head())
+    print(f"Data shape: {df_ml.shape}")
+    
+    # Initialize and run pipeline
+    pipeline = AirlineMLPipeline(df_ml)
+    best_model, results = pipeline.run_complete_pipeline()
+    
+    # Interactive prediction
+    print("\nWould you like to try the interactive predictor? (y/n)")
+    choice = input().lower()
+    if choice == 'y':
+        pipeline.interactive_prediction()
+    
+    return pipeline
+
+if __name__ == "__main__":
+    pipeline = main()
